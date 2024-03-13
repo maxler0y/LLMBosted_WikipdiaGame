@@ -18,7 +18,7 @@
 
 ## Psuedocode for this: 
     *no special libraries needed for this*
-    *I took the liberty of rewriting the codebase from scratch [here](https://github.com/maxler0y/LLMBosted_WikipdiaGame/blob/0a70d90a52956b80b3b2b9a9cf8d4e723f160315/tempScript.py) (although it does not work yet)*
+    *I took the liberty of rewriting the codebase from scratch in /tempScript.py (although it does not work yet)*
 
     Function ExtractTitle(url):
     Fetch the page content from url
