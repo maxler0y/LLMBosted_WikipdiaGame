@@ -1,4 +1,4 @@
-## Issue aimed to be fixed with my proposed solution:
+## Issue aimed to be fixed with my (just me) proposed solution:
     The spacetime complexity of this algorithm blows up quite quickly as the absolute path length increases, and I think this could be optimized. 
     
     Below is how I belive this can be done. 
