@@ -18,7 +18,7 @@
 
 ## Psuedocode for this: 
     *no special libraries needed for this*
-    *I took the liberty of rewriting the codebase from scratch [here](/tempScript) (although it does not work yet)*
+    *I took the liberty of rewriting the codebase from scratch [here](/tempScript.py) (although it does not work yet)*
 
     Function ExtractTitle(url):
     Fetch the page content from url
