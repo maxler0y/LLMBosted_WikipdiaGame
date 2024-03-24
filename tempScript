@@ -2,10 +2,17 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
-import openai
+import os
 from openai import OpenAI
+from dotenv.main import load_dotenv
+from caseInsensitive import CaseInsensitiveDict
 
-client = OpenAI()
+load_dotenv()
+client = OpenAI(
+)
+api_key = os.environ.get("OPENAI_API_KEY").strip()
+organization_id = os.environ.get("OPENAI_ORGANIZATION").strip()
+
 
 def extract_title(url):
     response = requests.get(url)
@@ -20,99 +27,128 @@ def extract_links(url):
     content = soup.find('div', {'id': 'mw-content-text'}) or soup.find('div', {'id': 'bodyContent'})
     links = content.find_all('a', {'href': re.compile('^/wiki/')})
     
-    links_dict = {}
+    links_dict = CaseInsensitiveDict()
     for link in links:
-        # Skip links with no title text or that link to non-article pages
-        if not link['href'].startswith(("/wiki/Special:", "/wiki/File:", "/wiki/Help:")):
+        # Skip links with no title text, that link to non-article pages, or contain fragment identifiers
+        if not link['href'].startswith(("/wiki/Special:", "/wiki/File:", "/wiki/Help:")) and '#' not in link['href']:
             title = link.text
             # Skip empty titles or image links
             if title and not link['href'].startswith("/wiki/File:"):
                 full_url = 'https://en.wikipedia.org' + link['href']
                 links_dict[title] = full_url
-                
     return links_dict
+
 
 def store_links(start_url):
     start_title = extract_title(start_url)
     start_links_dict = extract_links(start_url)
 
-    # Converting dictionary to JSON string
-    start_links_json = json.dumps(start_links_dict, ensure_ascii=False, indent=4)
-    return start_links_json
+    # Storing only titles for OpenAI API
+    start_links_titles = list(start_links_dict.keys())
+    start_links_json = json.dumps(start_links_titles, ensure_ascii=False, indent=4)
+    return start_links_json, start_links_dict
 
 
 # Function to get the best next link using GPT-3.5 Turbo
-def get_best_next_link(start_url, end_url, start_title, end_title, links_json):
+def get_best_next_link(start_title, end_title, links_json, api_key, links_dict):
     prompt = f"""
-        Start Article URL: {start_url},
         Start Article Title: {start_title},
-        End Article URL: {end_url},
         End Article Title: {end_title},
+        Visited Links: {list(visited_links)},
         Connected Links: {links_json},
-        Given the start and end articles, and the connected links, what is the best next link to follow? Return the answer as a JSON object with the format {{\"title\": \"link\"}}.
+        Given the start and end article titles, and the connected links, what is the best next link to follow? Return the answer as a JSON object with the format {{\"title\": \"link\"}}.
         """
+    
+    data = {
+        "model": "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": "json_object"  # Ensure the response is a JSON object
+    }
+    
+    with open('requestForAI.txt', 'w') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
-            prompt=prompt,
-            messages=[{"role":"system", "content": system_message}, {"role":"user", "content": prompt}],
-            response_format = "json_object"
-        )
-        # Assuming the response text is directly usable and is a JSON string
-        best_link = json.loads(response.choices[0].text)
-        print("Best Next Link:", best_link)
-        return best_link
-    except json.JSONDecodeError:
-        print("Failed to decode JSON from model response.")
-        return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
+    response = client.chat.completions.create(**data)
+    response_text = response.choices[0].message.content.strip()
+    response_json = json.loads(response_text)
+    response_title = response_json["title"]
+    return links_dict[response_title]
  
 # Example usage
-start_url = input("Enter the start URL: ")
-end_url = input("Enter the start URL: ")
+start_url = "https://en.wikipedia.org/wiki/Fruit"  # input("Enter the start URL: ")
+end_url = "https://en.wikipedia.org/wiki/Carrot"  # input("Enter the end URL: ")
 current_url = start_url
 end_title = extract_title(end_url)
+
+# Load API key from .env file
+with open('.env', 'r') as file:
+    api_key = file.read().strip()
+
 system_message = """
 Objective: Assist in navigating from a given starting Wikipedia article to a target ending article using the most relevant connected links. Predict the next best link to follow from the start towards the end based on their topics. COMMUNICATE ONLY IN JSON, THIS IS VERY IMPORTANT.
 Input:
-- Start Article URL: The URL of the Wikipedia article from which to start.
 - Start Article Title: The title of the starting Wikipedia article.
-- End Article URL: The URL of the Wikipedia article that is the target destination.
 - End Article Title: The title of the ending Wikipedia article.
-- Connected Links: A list of URLs and their corresponding titles directly connected to the Start Article. Each link is a potential next step towards reaching the End Article.
+- Connected Links: A list of titles directly connected to the Start Article. Each link is a potential next step towards reaching the End Article.
 Process:
 1. Analyze the Start and End Article Titles to understand the context and subject matter of both.
 2. From the list of Connected Links, evaluate each link's relevance to the context and content of the End Article Title.
 3. Predict which link is most likely to bring the search closer to the End Article, based on thematic connections, keyword similarities, and any known hierarchical or categorical relationships within Wikipedia's structure.
 4. Select the Best Next Link to follow as your recommendation.
 Output:
-- The URL and Title of the link you predict is the most effective next step towards the End Article from the given Start Article. A json object returing a pairing of {"title":"link"}.
+- The Title of the link you predict is the most effective next step towards the End Article from the given Start Article. Return the answer as a JSON object with the format {\"title\": \"link\"}.
 Constraints:
 - The decision should optimize for the shortest possible path to the End Article.
 - Only consider the Connected Links provided.
 - Only return one link as the Best Next Link.
+- Do not revisit a link that has already been visited.
 
 Example Input and Output:
-- Start Article URL: https://en.wikipedia.org/wiki/Artificial_intelligence
 - Start Article Title: Artificial Intelligence
-- End Article URL: https://en.wikipedia.org/wiki/Philosophy_of_mind
 - End Article Title: Philosophy of Mind
-- Connected Links:
-  - https://en.wikipedia.org/wiki/Machine_learning - "Machine Learning"
-  - https://en.wikipedia.org/wiki/Computer_science - "Computer Science"
-  - https://en.wikipedia.org/wiki/Cognitive_science - "Cognitive Science"
-  - https://en.wikipedia.org/wiki/Robotics - "Robotics"
+- Connected Links by title:
+  - "Machine Learning"
+  - "Computer Science"
+  - "Cognitive Science"
+  - "Robotics"
 
-    Expected Output for example: 
-    - {"Cognitive Science":"https://en.wikipedia.org/wiki/Cognitive_science"}
+    Expected Output for example, please make sure to copy this format exactly as it is: 
+    - {
+            "choices": [
+                {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": "{\"title\": \"Cognitive Science\"}",
+                    "role": "assistant"
+                },
+                "logprobs": null
+                }
+            ],
+            "created": 1677664795,
+            "id": "chatcmpl-7QyqpwdfhqwajicIEznoc6Q47XAyW",
+            "model": "gpt-3.5-turbo-0613",
+            "object": "chat.completion",
+            "usage": {
+                "completion_tokens": 17,
+                "prompt_tokens": 57,
+                "total_tokens": 74
+            }
+            }
+
 
 Reasoning: "Cognitive Science" is closely related to both artificial intelligence and the philosophy of mind, making it a good choice for navigating closer to the target article.
 """
-while (current_url != end_url):
-    current_links_json = store_links(current_url)
-    next_url = get_best_next_link(current_url, end_url, extract_title(current_url), end_title, current_links_json)
+visited_links = set()
+
+while current_url != end_url:
+    current_links_json, current_links_dict = store_links(current_url)
+    print("Intermediary link:", current_url)
+    next_url = get_best_next_link(extract_title(current_url), end_title, current_links_json, api_key, current_links_dict)
+    visited_links.add(extract_title(current_url))
     current_url = next_url
-    
+
+print("Final link:", current_url)
