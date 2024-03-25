@@ -20,8 +20,8 @@
 
 
 ## Psuedocode for this: 
-    *no special libraries needed for this*
-    *I took the liberty of rewriting the codebase from scratch in /tempScript.py (although it does not work yet)*
+    
+    APIs
 
     Function ExtractTitle(url):
     Fetch the page content from url
