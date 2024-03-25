@@ -45,7 +45,8 @@
     Function GetBestNextLink(startUrl, endUrl, startTitle, endTitle, linksJson):
         Construct a prompt explaining the task, including start and end information, and the links
         Send the prompt to the LLM/MLM API
-        Receive the model's response, ideally as a JSON object indicating the best next link
+        Receive the model's response, ideally as a JSON object indicating the best next title
+        Map title to link
         Return the best next link
 
     Main:
@@ -60,3 +61,30 @@
             nextLink = GetBestNextLink(currentUrl, endUrl, ExtractTitle(currentUrl), endTitle, currentLinksJson)
             Update currentUrl to the URL from nextLink
 
+## Milestones
+
+- [x] 1: Accept start and end URL. Extract titles.                                  DUE: WEEK 1
+    - APIs: `beautifulSoup`, `requests`
+    - Keep track of these variables
+- [x] 2: Have all Wikipedia links from the current page in a title:URL dictionary   DUE: WEEK 1
+    - APIs: `beautifulSoup`, `requests`, `re`
+    - Custom dictionary case insensitive (`caseInsensitive.py`)
+- [x] 3: Successfully pass scene info 1x to LLM                                     DUE: WEEK 1
+    - APIs: `json`, `os`, `openai`, `dotenv`
+    - Have it return a JSON payload with `"title"` and `"actual_title_here"` as key:pair
+    - Map this title to the actual link in the dictionary
+    - Keep track of all visited links to avoid repeats
+    - Create env variables for authentication
+- [ ] 4: Repetitively send new scene info to LLM                                    DUE: WEEK 3
+    - Keep sending new scene info from the selected link 
+    - stop when returned linked = final link
+    - Problem: LLM not always returning perfect JSON
+        - Format mode is available for GPT-4, but 10x more expensive... 
+- [ ] 5: Have successfully tracked path                                             DUE: WEEK 4
+    - Fully functional with no errors in generating responses
+    - Short path with a reasonable flow of evolution
+- [ ] 6: Provide this service on a web server through an HTML page                  DUE: WEEK 5
+    - APIs: `webbrowser`, `flask`, `threading`,
+    - create an html page that accepts a starting and ending link and then prints in between links once final path is found
+    - also accepts a timing incrememnt and a cost value (in cents)
+    - if no path is found after a determinable amount of time or we reach cash threshold, we cancel
