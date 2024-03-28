@@ -99,6 +99,6 @@
 
 ## Requirements
 - .env file located in this repo
-    - containni
+    - containing openai dev key details (organization should not be necessary)
     - should look like: "OPENAI_API_KEY=sk-xxx123XXXX"
                         "OPENAI_ORGANIZATION=org-xxxx123XXXX"
