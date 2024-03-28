@@ -63,28 +63,42 @@
 
 ## Milestones
 
-- [x] 1: Accept start and end URL. Extract titles.                                  DUE: WEEK 1
+### DUE: WEEK Mar 28
+- [x] 1: Accept start and end URL. Extract titles.                                
     - APIs: `beautifulSoup`, `requests`
     - Keep track of these variables
-- [x] 2: Have all Wikipedia links from the current page in a title:URL dictionary   DUE: WEEK 1
+    ### DUE: WEEK Mar 28
+- [x] 2: Have all Wikipedia links from the current page in a title:URL dictionary   
     - APIs: `beautifulSoup`, `requests`, `re`
     - Custom dictionary case insensitive (`caseInsensitive.py`)
-- [x] 3: Successfully pass scene info 1x to LLM                                     DUE: WEEK 1
+    ### DUE: WEEK Mar 28
+- [x] 3: Successfully pass scene info 1x to LLM                                    
     - APIs: `json`, `os`, `openai`, `dotenv`
     - Have it return a JSON payload with `"title"` and `"actual_title_here"` as key:pair
     - Map this title to the actual link in the dictionary
     - Keep track of all visited links to avoid repeats
     - Create env variables for authentication
-- [ ] 4: Repetitively send new scene info to LLM                                    DUE: WEEK 3
+    ### DUE: WEEK April 4
+- [ ] 4: Repetitively send new scene info to LLM                                    
     - Keep sending new scene info from the selected link 
     - stop when returned linked = final link
     - Problem: LLM not always returning perfect JSON
-        - Format mode is available for GPT-4, but 10x more expensive... 
-- [ ] 5: Have successfully tracked path                                             DUE: WEEK 4
+        - Format mode is available for GPT-4, but 10x more expensive...
+    ### DUE: WEEK April 18
+- [ ] 5: Have successfully tracked path                                             
     - Fully functional with no errors in generating responses
     - Short path with a reasonable flow of evolution
-- [ ] 6: Provide this service on a web server through an HTML page                  DUE: WEEK 5
+    ### DUE: WEEK April 25
+- [ ] 6: Provide this service on a web server through an HTML page                 
     - APIs: `webbrowser`, `flask`, `threading`,
     - create an html page that accepts a starting and ending link and then prints in between links once final path is found
     - also accepts a timing incrememnt and a cost value (in cents)
     - if no path is found after a determinable amount of time or we reach cash threshold, we cancel
+
+
+
+## Requirements
+- .env file located in this repo
+    - containni
+    - should look like: "OPENAI_API_KEY=sk-xxx123XXXX"
+                        "OPENAI_ORGANIZATION=org-xxxx123XXXX"
