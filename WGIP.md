@@ -96,9 +96,14 @@
     - if no path is found after a determinable amount of time or we reach cash threshold, we cancel
 
 
+## Class Discussion Takeaways
+- add previous links to eliminate reproducing links
+- extract reasoning to help next LLM continue chain of thought
+- 
 
 ## Requirements
 - .env file located in this repo
     - containing openai dev key details (organization should not be necessary)
     - should look like: "OPENAI_API_KEY=sk-xxx123XXXX"
                         "OPENAI_ORGANIZATION=org-xxxx123XXXX"
+
