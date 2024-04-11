@@ -138,3 +138,4 @@ while current_url != end_url:
     current_url = next_url
 
 print("Final link:", current_url) 
+print("AI's reasoning:", prevAILogic)
