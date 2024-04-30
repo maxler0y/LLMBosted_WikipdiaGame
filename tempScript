@@ -1,67 +1,59 @@
-import requests
+from flask import Flask, render_template, request, Response, stream_with_context, redirect, url_for
 from bs4 import BeautifulSoup
+import requests
 import re
 import json
 import os
 from openai import OpenAI
 from dotenv.main import load_dotenv
 from caseInsensitive import CaseInsensitiveDict
+import time
+
+#compact multiple titles that have same page into one
 
 load_dotenv()
 api_key = os.environ.get("OPENAI_API_KEY").strip()
-#organization_id = os.environ.get("OPENAI_ORGANIZATION").strip()
 
-client = OpenAI(
-    api_key=api_key,
-)
-visited_links = set()
-prevAILogic = "no logic yet"
+client = OpenAI(api_key=api_key)
 
 def extract_title(url):
+    if url is None:
+        return None
+
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.find('h1', {'id': 'firstHeading'}).text
-    return title
+    title = soup.find('h1', {'id': 'firstHeading'})
+    return title.text if title else None
 
 def extract_links(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    # Focus on the main content text
     content = soup.find('div', {'id': 'mw-content-text'}) or soup.find('div', {'id': 'bodyContent'})
     links = content.find_all('a', {'href': re.compile('^/wiki/')})
     
     links_dict = CaseInsensitiveDict()
     for link in links:
-        # Skip links with no title text, that link to non-article pages, or contain fragment identifiers
         if not link['href'].startswith(("/wiki/Special:", "/wiki/File:", "/wiki/Help:")) and '#' not in link['href']:
             title = link.text
-            # Skip empty titles or image links
             if title and not link['href'].startswith("/wiki/File:"):
                 full_url = 'https://en.wikipedia.org' + link['href']
                 links_dict[title] = full_url
     return links_dict
 
-
 def store_links(start_url):
     start_title = extract_title(start_url)
     start_links_dict = extract_links(start_url)
-
-    # Storing only titles for OpenAI API
     start_links_titles = list(start_links_dict.keys())
     start_links_json = json.dumps(start_links_titles, ensure_ascii=False, indent=4)
     return start_links_json, start_links_dict
 
-
-## add references, add backtracking and visited links to avoid them. extract AI's explanation and pass this to the enxt request
-
-# Function to get the best next link using GPT-3.5 Turbo
-def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, formerAILogic=""):
+def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, formerAILogic="", visited_links=set()):
     prompt = f"""
         Take your time to slowly think to find the BEST next link. DO NOT HALLUCINATE LINKS. ONLY USE LINKS PRESENT. DO NOT REPEAT LINKS. These 3 points are very important. Return the answer as a json with the title and the reasoning.
         """
     
     data = {
-        "model": "gpt-3.5-turbo",  #gpt-4-turbo-preview #gpt-3.5-turbo
+        "model": "gpt-3.5-turbo",  
         "messages": [
             {"role": "system", "content": system_message},
             {"role": "user", "content": f"Current Article Title: {start_title}"},
@@ -71,32 +63,29 @@ def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, 
             {"role": "user", "content": prompt},
             {"role": "user", "content": f"previous AI's logic that brought us to current article: {formerAILogic}"}
         ],
-        "response_format" : { "type": "json_object" }
+       "response_format" : { "type": "json_object" }
     }
-    
-    with open('AIRequest.txt', 'w') as file:
-        # put data in a file without using json.dumps
-        file.write(str(data))
+
     response = client.chat.completions.create(**data)
 
-    with open('AIResponse.txt', 'w') as file:
-        # put response in a file without using json.dumps
-        file.write(str(response))
-   # print(response)
     response_content = response.choices[0].message.content.strip()
-    response_json = json.loads(response_content)  # Parse the response content into a JSON object
-    response_title = response_json["title"]
-    return links_dict[response_title], response_json["reasoning"]
- 
-# Example usage
-start_url = "https://en.wikipedia.org/wiki/Fruit"  # input("Enter the start URL: ")
-end_url = "https://en.wikipedia.org/wiki/Hawaii"  # input("Enter the end URL: ")
-current_url = start_url
-end_title = extract_title(end_url)
+    response_json = json.loads(response_content)
+    response_title = response_json["title"].strip().lower()
 
-# Load API key from .env file
-with open('.env', 'r') as file:
-    api_key = file.read().strip()
+    # write both the request and response to a file
+    with open("AIRequest.txt", "a") as f:
+        f.seek(0)
+        f.write(f"Request: {data}\n")
+    
+    with open("AIResponse.txt", "a") as f:
+        f.seek(0)
+        f.write(f"Response: {response_content}\n")
+    # Check if the recommended link title is present in the links_dict
+    if response_title in links_dict:
+        return links_dict[response_title], response_json["reasoning"]
+    else:
+        # Handle the case where the recommended link is not present
+        return None, "Unfortunately, the recommended link is not available in the current set of links."
 
 system_message = """
 Objective: Recommend the best next link to follow from a given set of connected links to navigate from a starting Wikipedia article to a target ending article.
@@ -111,31 +100,55 @@ Constraints:
 Input:
 - Current Article Title: The title of the starting Wikipedia article.
 - End Article Title: The title of the ending Wikipedia article.
-- Connected Links: A JSON array of titles directly connected to the Current Article. Each link is a potential next step towards reaching the End Article. You MUST return one of these links as the recommendation.
-- Visited Links: A JSON array of titles that have already been visited in the current path. Do not recommend a visited link.
+- Connected Links: A JSON array of titles directly connected to the Current Article.
+- Visited Links: A JSON array of titles that have already been visited in the current path.
 
 Output:
-- A JSON object with two key-value pairs, where 1 key is "title" and the other is "reasoning". Example: {"title": "Recommended Link Title"}
-
-Example Input:
-{
-  "Current Article Title": "Artificial Intelligence",
-  "End Article Title": "Philosophy of Mind",
-  "Connected Links": ["Machine Learning", "Computer Science", "Cognitive Science", "Robotics"],
-  "Visited Links": ["Artificial Intelligence"]
-}
-
-Example Output:
-content='{"title": "Cognitive Science", "reasoning": "Cognitive Science is..."}'
+- A JSON object with two key-value pairs: "title" and "reasoning". Example: {"title": "Recommended Link Title", "reasoning": "..."}
 """
 
-while current_url != end_url:
-    current_links_json, current_links_dict = store_links(current_url)
-    print("Intermediary link:", current_url)
-    print("AI's reasoning:", prevAILogic)
-    next_url, prevAILogic = get_best_next_link(extract_title(current_url), end_title, current_links_json, api_key, current_links_dict, prevAILogic)
-    visited_links.add(extract_title(current_url))
-    current_url = next_url
+app = Flask(__name__)
 
-print("Final link:", current_url) 
-print("AI's reasoning:", prevAILogic)
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/track-path', methods=['POST'])
+def track_path():
+    data = request.get_json()
+    start_link = data.get('startLink')
+    end_link = data.get('endLink')
+    visited_links = set()
+
+    return Response(stream_with_context(generate_events(start_link, end_link, visited_links)), content_type="text/event-stream")
+
+@app.route('/stream-path', methods=['GET'])
+def stream_path():
+    start_link = request.args.get('start_link')
+    end_link = request.args.get('end_link')
+    visited_links = set()
+
+    return Response(generate_events(start_link, end_link, visited_links), content_type="text/event-stream")
+
+def generate_events(start_link, end_link, visited_links):
+    current_url = start_link
+    end_title = extract_title(end_link)
+    prevAILogic = "no logic yet"  # Initialize prevAILogic
+
+    while current_url != end_link:
+        current_links_json, current_links_dict = store_links(current_url)
+
+        # Update prevAILogic by making a GPT request
+        next_url, prevAILogic = get_best_next_link(extract_title(current_url), end_title, current_links_json, api_key, current_links_dict, prevAILogic, visited_links)
+
+        visited_links.add(extract_title(current_url))
+        current_url = next_url
+        yield f"data: INTERMEDIARY LINK: {current_url}\n\n"
+        yield f"data: AI REASONING: {prevAILogic}\n\n"
+        print("sent out data")
+
+    yield f"data: Final link: {current_url}\n\n"
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

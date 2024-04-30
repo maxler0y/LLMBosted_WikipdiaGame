@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Path Tracker</title>
+    <title>AI Wikipedia Path Finder</title>
     <style>
         body {
             font-family: 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
@@ -186,31 +186,76 @@
 </head>
 <body>
     <div class="container">
-        <h1>Modern Path Tracker</h1>
-        <input type="text" placeholder="Start Link" id="startLink">
-        <input type="text" placeholder="End Link" id="endLink">
-        <div class="button-container">
-            <button id="enterBtn">Enter</button>
-            <div class="lds-roller">
-                <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+        <h1>AI Wikipedia Path Finder</h1>
+        <form id="path-form">
+            <input type="text" placeholder="Start Link" name="startLink" value="https://en.wikipedia.org/wiki/Fruit">
+            <input type="text" placeholder="End Link" name="endLink" value="https://en.wikipedia.org/wiki/Hawaii">
+            <div class="button-container">
+                <button type="submit">Enter</button>
+                <div class="lds-roller">
+                    <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+                </div>
             </div>
-        </div>
+        </form>
         <textarea placeholder="Path Taken" id="pathTaken" readonly></textarea>
     </div>
 
     <script>
-        const enterBtn = document.getElementById('enterBtn');
-        const pathTaken = document.getElementById('pathTaken');
+        const form = document.getElementById('path-form');
         const loader = document.querySelector('.lds-roller');
-
-        enterBtn.addEventListener('click', () => {
+        const pathTaken = document.getElementById('pathTaken');
+        
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
             loader.classList.add('visible');
-            // Implement server-side logic to track path taken
-            // and update the pathTaken textarea dynamically
-            setTimeout(() => {
+            pathTaken.value = ''; // Clear the text area
+        
+            const formData = {
+                startLink: form.elements.startLink.value,
+                endLink: form.elements.endLink.value
+            };
+        
+            try {
+                const response = await fetch('/track-path', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+        
+                if (response.ok) {
+                    const eventSource = new EventSource(`/stream-path?start_link=${encodeURIComponent(formData.startLink)}&end_link=${encodeURIComponent(formData.endLink)}`);
+        
+                    eventSource.addEventListener('message', (event) => {
+                        const data = event.data.split('data: ');
+                        console.log('Received message:', data);
+                        pathTaken.value += data + '\n';
+                    });
+        
+                    eventSource.addEventListener('error', (event) => {
+                        console.error('EventSource error:', event);
+                        eventSource.close();
+                        loader.classList.remove('visible');
+                    });
+        
+                    eventSource.addEventListener('open', () => {
+                        console.log('EventSource opened');
+                    });
+        
+                    eventSource.addEventListener('close', () => {
+                        console.log('EventSource closed');
+                        loader.classList.remove('visible');
+                    });
+                } else {
+                    console.error('Server response error:', response.status);
+                    loader.classList.remove('visible');
+                }
+            } catch (error) {
+                console.error('Error fetching path data:', error);
                 loader.classList.remove('visible');
-            }, 2000); // Remove loading state after 2 seconds (for demonstration)
+            }
         });
-    </script>
+    </script>   
 </body>
 </html>
