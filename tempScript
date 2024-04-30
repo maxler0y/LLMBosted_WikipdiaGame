@@ -52,8 +52,8 @@ def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, 
         Take your time to slowly think to find the BEST next link. DO NOT HALLUCINATE LINKS. ONLY USE LINKS PRESENT. DO NOT REPEAT LINKS. These 3 points are very important. Return the answer as a json with the title and the reasoning.
         """
     
-    data = {
-        "model": "gpt-3.5-turbo",  
+    data = { 
+        "model": "gpt-3.5-turbo",   #    "gpt-4-turbo-preview"     "gpt-3.5-turbo"
         "messages": [
             {"role": "system", "content": system_message},
             {"role": "user", "content": f"Current Article Title: {start_title}"},
