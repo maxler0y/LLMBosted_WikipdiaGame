@@ -14,10 +14,11 @@ To run this project, you will need to install several Python libraries and set u
     ```
 
 2. Create a `.env` file in the same directory as your Python script and configure it as needed.
+    content should look like: OPENAI_API_KEY=sk-1234XXXXX
 
 3. Run the Python script:
     ```bash
-    python your_script_name.py
+    python AIpathfinder.py
     ```
 
 4. Open the link provided in your browser to interact with the application.
