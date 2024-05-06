@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, Response, stream_with_context, redirect, url_for
+from flask import Flask, render_template, request, Response, stream_with_context, redirect, url_for, jsonify
 from bs4 import BeautifulSoup
 import requests
 import re
@@ -15,6 +15,26 @@ load_dotenv()
 api_key = os.environ.get("OPENAI_API_KEY").strip()
 
 client = OpenAI(api_key=api_key)
+
+system_message = """
+Objective: Recommend the best next link to follow from a given set of connected links to navigate from a starting Wikipedia article to a target ending article.
+
+Constraints:
+- ONLY RECOMMEND A LINK FROM THE CONNECTED LINKS. 
+- DO NOT HALLUCINATE OR INVENT LINKS. ONLY USE LINKS PRESENT.
+- DO NOT SELECT AN ALREADY VISITED LINK.
+- The recommended link should be the most relevant next step towards the End Article based on the current topic and content.
+- Return exactly one recommended link.
+
+Input:
+- Current Article Title: The title of the starting Wikipedia article.
+- End Article Title: The title of the ending Wikipedia article.
+- Connected Links: A JSON array of titles directly connected to the Current Article.
+- Visited Links: A JSON array of titles that have already been visited in the current path.
+
+Output:
+- A JSON object with two key-value pairs: "title" and "reasoning". Example: {"title": "Recommended Link Title", "reasoning": "..."}
+"""
 
 def extract_title(url):
     if url is None:
@@ -47,13 +67,13 @@ def store_links(start_url):
     start_links_json = json.dumps(start_links_titles, ensure_ascii=False, indent=4)
     return start_links_json, start_links_dict
 
-def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, formerAILogic="", visited_links=set()):
+def get_best_next_link(start_title, end_title, links_json, model, links_dict, formerAILogic="", visited_links=set()):
     prompt = f"""
         Take your time to slowly think to find the BEST next link. DO NOT HALLUCINATE LINKS. ONLY USE LINKS PRESENT. DO NOT REPEAT LINKS. These 3 points are very important. Return the answer as a json with the title and the reasoning.
         """
     
-    data = { 
-        "model": "gpt-3.5-turbo",   #    "gpt-4-turbo-preview"     "gpt-3.5-turbo"
+    data = {
+        "model": model,   #    "gpt-4-turbo-preview"     "gpt-3.5-turbo"
         "messages": [
             {"role": "system", "content": system_message},
             {"role": "user", "content": f"Current Article Title: {start_title}"},
@@ -87,65 +107,61 @@ def get_best_next_link(start_title, end_title, links_json, api_key, links_dict, 
         # Handle the case where the recommended link is not present
         return None, "Unfortunately, the recommended link is not available in the current set of links."
 
-system_message = """
-Objective: Recommend the best next link to follow from a given set of connected links to navigate from a starting Wikipedia article to a target ending article.
-
-Constraints:
-- ONLY RECOMMEND A LINK FROM THE CONNECTED LINKS. 
-- DO NOT HALLUCINATE OR INVENT LINKS. ONLY USE LINKS PRESENT.
-- DO NOT SELECT AN ALREADY VISITED LINK.
-- The recommended link should be the most relevant next step towards the End Article based on the current topic and content.
-- Return exactly one recommended link.
-
-Input:
-- Current Article Title: The title of the starting Wikipedia article.
-- End Article Title: The title of the ending Wikipedia article.
-- Connected Links: A JSON array of titles directly connected to the Current Article.
-- Visited Links: A JSON array of titles that have already been visited in the current path.
-
-Output:
-- A JSON object with two key-value pairs: "title" and "reasoning". Example: {"title": "Recommended Link Title", "reasoning": "..."}
-"""
-
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='static')
 
 @app.route('/')
 def home():
     return render_template('index.html')
+
+stop_signal = False
+@app.route('/stop-path', methods=['POST'])
+def stop_path():
+    global stop_signal
+    stop_signal = True
+    return jsonify({"status": "stopped"}), 200
 
 @app.route('/track-path', methods=['POST'])
 def track_path():
     data = request.get_json()
     start_link = data.get('startLink')
     end_link = data.get('endLink')
+    model = data.get('model')  # Get the selected model from the request data
     visited_links = set()
 
-    return Response(stream_with_context(generate_events(start_link, end_link, visited_links)), content_type="text/event-stream")
+    return Response(stream_with_context(generate_events(start_link, end_link, model, visited_links)), content_type="text/event-stream")
 
 @app.route('/stream-path', methods=['GET'])
 def stream_path():
     start_link = request.args.get('start_link')
     end_link = request.args.get('end_link')
+    model = request.args.get('model')  # Get the selected model from the query parameters
     visited_links = set()
 
-    return Response(generate_events(start_link, end_link, visited_links), content_type="text/event-stream")
+    return Response(generate_events(start_link, end_link, model, visited_links), content_type="text/event-stream")
 
-def generate_events(start_link, end_link, visited_links):
+def generate_events(start_link, end_link, model, visited_links):
+    global stop_signal
     current_url = start_link
     end_title = extract_title(end_link)
-    prevAILogic = "no logic yet"  # Initialize prevAILogic
-
-    while current_url != end_link:
+    prevAILogic = "no logic yet"
+    if model == "gpt-3.5":
+        model = "gpt-3.5-turbo"
+    if model == "gpt-4":
+        model = "gpt-4-turbo-preview"
+    print(model)
+    while current_url != end_link and not stop_signal:
         current_links_json, current_links_dict = store_links(current_url)
 
-        # Update prevAILogic by making a GPT request
-        next_url, prevAILogic = get_best_next_link(extract_title(current_url), end_title, current_links_json, api_key, current_links_dict, prevAILogic, visited_links)
+        next_url, prevAILogic = get_best_next_link(extract_title(current_url), end_title, current_links_json, model, current_links_dict, prevAILogic, visited_links)
 
         visited_links.add(extract_title(current_url))
         current_url = next_url
         yield f"data: INTERMEDIARY LINK: {current_url}\n\n"
         yield f"data: AI REASONING: {prevAILogic}\n\n"
-        print("sent out data")
+
+    if stop_signal:
+        stop_signal = False
+        visited_links.clear()
 
     yield f"data: Final link: {current_url}\n\n"
 

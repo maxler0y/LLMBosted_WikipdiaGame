@@ -14,7 +14,12 @@
             align-items: center;
             height: 100vh;
             margin: 0;
+            background-image: url('/static/nodes.gif'); /* Replace 'path_to_your_gif.gif' with the actual path to your GIF */
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* Keeps the background fixed during scrolling */
         }
+
 
         .container {
             background-color: #232326;
@@ -46,10 +51,16 @@
             font-size: 16px;
         }
 
+        textarea {
+            height: 150px;
+        }
+
         .button-container {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             margin-bottom: 20px;
+            width: 80%;
         }
 
         button {
@@ -182,6 +193,65 @@
                 transform: rotate(360deg);
             }
         }
+        #counters {
+            display: flex;
+            justify-content: center; /* Centers the items horizontally */
+            width: 100%;
+            margin-top: 10px; /* Reduce top margin if needed */
+            margin-bottom: 20px; /* Adjust bottom margin as needed */
+        }
+
+        #counters span {
+            background-color: #2c2c2e;
+            color: #f5f5f7;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 0 10px; /* Adds space between the counters if they are too close */
+        }
+        select {
+            width: auto;
+            padding: 10px 15px;
+            background-color: #2c2c2e;
+            color: #f5f5f7;
+            border: none;
+            border-radius: 10px;
+        }
+
+        select:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #8b5cf6;
+        }
+
+        .btn {
+            background-color: #8b5cf6;
+            color: #fff;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #7c3aed;
+        }
+
+        .btn-blue {
+            background-color: #3b82f6;
+        }
+
+        .btn-blue:hover {
+            background-color: #2563eb;
+        }
+        #stopButton {
+    background-color: #ff6394; /* Radish pinkish color */
+        }
+
+        #stopButton:hover {
+            background-color: #e15383; /* Slightly darker radish pinkish on hover */
+        }
     </style>
 </head>
 <body>
@@ -191,71 +261,134 @@
             <input type="text" placeholder="Start Link" name="startLink" value="https://en.wikipedia.org/wiki/Fruit">
             <input type="text" placeholder="End Link" name="endLink" value="https://en.wikipedia.org/wiki/Hawaii">
             <div class="button-container">
-                <button type="submit">Enter</button>
+                <select id="modelSelect">
+                    <option value="gpt-3.5-turbo">GPT-3.5</option>
+                    <option value="gpt-4">GPT-4</option>
+                </select>
+                <button type="submit" class="btn">Enter</button>
+                <button type="button" id="stopButton" class="btn btn-blue">Stop</button>
+                <button type="button" id="clearButton" class="btn">Clear</button>
                 <div class="lds-roller">
                     <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
                 </div>
             </div>
         </form>
+        <div id="counters">
+            <span id="visitedPages">Visited Pages: 0</span>
+            <span id="elapsedTime">Elapsed Time: 0s</span>
+        </div>
         <textarea placeholder="Path Taken" id="pathTaken" readonly></textarea>
-    </div>
+    </div>    
 
     <script>
-        const form = document.getElementById('path-form');
-        const loader = document.querySelector('.lds-roller');
-        const pathTaken = document.getElementById('pathTaken');
-        
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            loader.classList.add('visible');
-            pathTaken.value = ''; // Clear the text area
-        
-            const formData = {
-                startLink: form.elements.startLink.value,
-                endLink: form.elements.endLink.value
-            };
-        
-            try {
-                const response = await fetch('/track-path', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-        
-                if (response.ok) {
-                    const eventSource = new EventSource(`/stream-path?start_link=${encodeURIComponent(formData.startLink)}&end_link=${encodeURIComponent(formData.endLink)}`);
-        
-                    eventSource.addEventListener('message', (event) => {
-                        const data = event.data.split('data: ');
-                        console.log('Received message:', data);
-                        pathTaken.value += data + '\n';
-                    });
-        
-                    eventSource.addEventListener('error', (event) => {
-                        console.error('EventSource error:', event);
-                        eventSource.close();
-                        loader.classList.remove('visible');
-                    });
-        
-                    eventSource.addEventListener('open', () => {
-                        console.log('EventSource opened');
-                    });
-        
-                    eventSource.addEventListener('close', () => {
-                        console.log('EventSource closed');
-                        loader.classList.remove('visible');
-                    });
-                } else {
-                    console.error('Server response error:', response.status);
-                    loader.classList.remove('visible');
-                }
-            } catch (error) {
-                console.error('Error fetching path data:', error);
-                loader.classList.remove('visible');
-            }
+const form = document.getElementById('path-form');
+const loader = document.querySelector('.lds-roller');
+const pathTaken = document.getElementById('pathTaken');
+const modelSelect = document.getElementById('modelSelect');
+const stopButton = document.getElementById('stopButton');
+const visitedPagesSpan = document.getElementById('visitedPages');
+const elapsedTimeSpan = document.getElementById('elapsedTime');
+let eventSource;
+let startTime;
+let intervalHandle;  // Handle for the interval timer
+let visitedPages = 0;
+
+function updateElapsedTime() {
+    if (startTime) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        elapsedTimeSpan.textContent = `Elapsed Time: ${elapsed} s`;
+    }
+}
+
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    startTime = Date.now(); // Start the timer
+    intervalHandle = setInterval(updateElapsedTime, 1000); // Update elapsed time every second
+    visitedPages = 0; // Reset visited pages counter
+    visitedPagesSpan.textContent = 'Visited Pages: 0';
+    loader.classList.add('visible');
+    pathTaken.value = '';
+
+    const formData = {
+        startLink: form.elements.startLink.value,
+        endLink: form.elements.endLink.value,
+        model: modelSelect.value
+    };
+
+    try {
+        const response = await fetch('/track-path', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
         });
-    </script>   
+
+        if (response.ok) {
+            eventSource = new EventSource(`/stream-path?start_link=${encodeURIComponent(formData.startLink)}&end_link=${encodeURIComponent(formData.endLink)}&model=${encodeURIComponent(formData.model)}`);
+            eventSource.onmessage = function(event) {
+                const data = event.data;
+                if (data.startsWith('INTERMEDIARY LINK: ')) {
+                    visitedPages++;
+                    visitedPagesSpan.textContent = `Visited Pages: ${visitedPages}`;
+                    pathTaken.value += data + '\n';
+                }
+            };
+            eventSource.onerror = function() {
+                clearInterval(intervalHandle);
+                loader.classList.remove('visible');
+                eventSource.close();
+            };
+        } else {
+            console.error('Server response error:', response.status);
+            loader.classList.remove('visible');
+        }
+    } catch (error) {
+        console.error('Error fetching path data:', error);
+        loader.classList.remove('visible');
+    }
+});
+
+stopButton.addEventListener('click', () => {
+    if (eventSource) {
+        eventSource.close();
+    }
+    clearInterval(intervalHandle); // Stop the timer
+    loader.classList.remove('visible');
+    fetch('/stop-path', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Path finding stopped by the server.');
+            pathTaken.value += 'Path finding has been stopped.\n';
+        })
+        .catch((error) => {
+            console.error('Error stopping path finding:', error);
+        });
+});
+clearButton.addEventListener('click', () => {
+    // Close the event source if it's open
+    if (eventSource) {
+        eventSource.close();
+    }
+    // Clear the form inputs
+    form.elements.startLink.value = '';
+    form.elements.endLink.value = '';
+    // Reset the selected model to the first option
+    modelSelect.selectedIndex = 0;
+    // Clear the path taken textarea
+    pathTaken.value = '';
+    // Reset the visited pages and elapsed time counters
+    visitedPages = 0;
+    visitedPagesSpan.textContent = 'Visited Pages: 0';
+    elapsedTimeSpan.textContent = 'Elapsed Time: 0s';
+    // Stop and reset the timer if it's running
+    clearInterval(intervalHandle);
+    startTime = undefined;
+    // Hide the loader if it's visible
+    loader.classList.remove('visible');
+});
+</script>
+    </script>
 </body>
 </html>
