@@ -1,7 +1,7 @@
 # Project README
 
 ## Current Limitation
-This project worked very with gpt4 (although expensive at ~20 cents per full 5 node path). However, recent new usage limits on OpenAI's server mean both gpt4 and gpt4o are limited to just 1-2 quick queries when taking into account the size of the context window being passed in this project (as can be seen in AIRequest.txt). This means only gpt3.5 tubro can be used to generate links, which unfortunately causes hallucaintion beyond our control, ultimately meaning I have not been able to reproduce complete paths since this change on OpenAIs side. I was at least lucky to document progress and working versions with gpt4 in the pngs: Examples/originalOutput.png, Examples/Online1.0.png, and Examples/Online2.0.png.
+This project worked very well with gpt4 (although expensive at ~20 cents per full 5 node path). However, recent new usage limits on OpenAI's servers mean both gpt4 and gpt4o are limited to just 1-2 quick queries when taking into account the size of the context window being passed in this project (as can be seen in AIRequest.txt). This means only gpt3.5 tubro can be used to generate links through an entire path detection, but this model unfortunately causes hallucaintion beyond our control, ultimately meaning I have not been able to reproduce complete paths since this change on OpenAIs side. I was at least lucky to document progress and working versions with gpt4 in the pngs: Examples/originalOutput.png, Examples/Online1.0.png, and Examples/Online2.0.png.
 
 ## What This Project Provides
 
@@ -37,4 +37,4 @@ This project was tested on both GPT-3.5 Turbo and GPT-4. While GPT-4 provides mu
 
 ## Ongoing / Future Improvements
 
-A few known issues have been identified and are planned for resolution. One significant issue is that Wikipedia pages for the same article can sometimes have different titles, which the current implementation does not account for. This will be addressed in future updates to improve the accuracy and reliability of the pathfinding algorithm.
+A few known issues have been identified and are planned for resolution. One significant issue is that Wikipedia pages for the same article can sometimes have different titles, which the current implementation does not account for. This will be addressed in future updates to improve the accuracy and reliability of the pathfinding algorithm. I also hope to see a reversal in server usage limits to enable me to continue work on this project.
