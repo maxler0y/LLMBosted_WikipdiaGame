@@ -1,7 +1,7 @@
 # Project README
 
 ## Current Limitation
-This project worked very with gpt4 (although expensive at ~20 cents per full 5 node path). However, recent new usage limits on OpenAI's server mean both gpt4 and gpt4o are limited to just 1-2 quick queries when taking into account the size of the context window being passed in this project (as can be seen in AIRequest.txt). This means only gpt3.5 tubro can be used to generate links, which unfortunately causes hallucaintion beyond our control, ultimately meaning I have not been able to reproduce complete paths since this change on OpenAIs side. I was at least lucky to document progress and working versions with gpt4 in the pngs: Examples/originalOutput.png, Examples/Online1.0.png, and Examples/Online2.0.png.
+This project worked very well with gpt4 (although expensive at ~20 cents per full 5 node path). However, recent new usage limits on OpenAI's servers mean both gpt4 and gpt4o are limited to just 1-2 quick queries when taking into account the size of the context window being passed in this project (as can be seen in AIRequest.txt). This means only gpt3.5 tubro can be used to generate links through an entire path detection, but this model unfortunately causes hallucaintion beyond our control, ultimately meaning I have not been able to reproduce complete paths since this change on OpenAIs side. I was at least lucky to document progress and working versions with gpt4 in the pngs: Examples/originalOutput.png, Examples/Online1.0.png, and Examples/Online2.0.png.
 
 ## What This Project Provides
 
