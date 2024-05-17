@@ -147,7 +147,7 @@ def generate_events(start_link, end_link, model, visited_links):
     if model == "gpt-3.5":
         model = "gpt-3.5-turbo"
     if model == "gpt-4":
-        model = "gpt-4-turbo-preview"
+        model = "gpt-4o"
     print(model)
     while current_url != end_link and not stop_signal:
         current_links_json, current_links_dict = store_links(current_url)
@@ -158,7 +158,7 @@ def generate_events(start_link, end_link, model, visited_links):
         current_url = next_url
         yield f"data: INTERMEDIARY LINK: {current_url}\n\n"
         yield f"data: AI REASONING: {prevAILogic}\n\n"
-
+        time.sleep(120) # ADDED LINE FOR FIX TO RATE LIMITING
     if stop_signal:
         stop_signal = False
         visited_links.clear()

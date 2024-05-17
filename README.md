@@ -15,8 +15,12 @@ To run this project, you will need to install several Python libraries and set u
     ```bash
     pip install Flask BeautifulSoup4 requests regex json os openai python-dotenv case-insensitive time
     ```
+    or by running the bash file:
+    ```
+    setup.sh
+    ```
 
-2. Create a `.env` file in the same directory as your Python script and configure it as needed. This is used to securely house your openai key (not azure openai key)
+2. Create a `.env` file in the same directory as the Python script (called AIpathfiner) and configure it as needed with an api key (for submission of this assignment I commented it on canvas, to keep the key hidden from others, as I pay for rates). This is used to securely house your openai key (not azure openai key)
     ```
     content should look like: OPENAI_API_KEY=sk-1234XXXXX
     ```
@@ -31,6 +35,6 @@ To run this project, you will need to install several Python libraries and set u
 
 This project was tested on both GPT-3.5 Turbo and GPT-4. While GPT-4 provides much better results (usually close to perfect), it is also more expensive. Most of the testing was done on GPT-3.5 Turbo, but GPT-4 is recommended for better and more accurate results. GPT3.5 often hallucinates along the path, selecting links which do not exist; this is not an issue with gpt4 or gpt4-o (which is under heavy load and had crashed because of its heavy usage).
 
-## Ongoing Improvements
+## Ongoing / Future Improvements
 
 A few known issues have been identified and are planned for resolution. One significant issue is that Wikipedia pages for the same article can sometimes have different titles, which the current implementation does not account for. This will be addressed in future updates to improve the accuracy and reliability of the pathfinding algorithm.
