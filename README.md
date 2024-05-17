@@ -33,4 +33,4 @@ This project was tested on both GPT-3.5 Turbo and GPT-4. While GPT-4 provides mu
 
 ## Ongoing Improvements
 
-A few known issues have been identified and are planned for resolution. One significant issue is that Wikipedia pages for the same article can sometimes have different titles, which the current implementation does not account for. This will be addressed in future updates to improve the accuracy and reliability of the pathfinding algorithm.
+A few known issues have been identified and are planned for resolution. One significant issue is that Wikipedia pages for the same article can sometimes have different titles, which the current implementation does not account for. This will be addressed in future updates to improve the accuracy and reliability of the pathfinding algorithm. I also hope to see a reversal in server usage limits to enable me to continue work on this project.
