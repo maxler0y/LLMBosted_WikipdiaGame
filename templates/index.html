@@ -334,6 +334,9 @@ form.addEventListener('submit', async (event) => {
                     visitedPagesSpan.textContent = `Visited Pages: ${visitedPages}`;
                     pathTaken.value += data + '\n';
                 }
+                if (data.startsWith('AI REASONING: ')) {
+                    pathTaken.value += data + '\n';
+                }
             };
             eventSource.onerror = function() {
                 clearInterval(intervalHandle);
